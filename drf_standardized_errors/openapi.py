@@ -52,32 +52,31 @@ S = Union[Type[serializers.Serializer], serializers.Serializer]
 class AutoSchema(BaseAutoSchema):
     def _get_response_bodies(self, direction: str = "response") -> Dict[str, Any]:
         responses = super()._get_response_bodies(direction=direction)
-        if direction == "response":
-            error_responses = {}
-
-            status_codes = self._get_allowed_error_status_codes()
-            for status_code in status_codes:
-                if self._should_add_error_response(responses, status_code):
-                    serializer = self._get_error_response_serializer(status_code)
-                    if not serializer:
-                        warn(
-                            f"drf-standardized-errors: The status code '{status_code}' "
-                            "is one of the allowed error status codes in the setting "
-                            "'ALLOWED_ERROR_STATUS_CODES'. However, a corresponding "
-                            "error response serializer could not be determined. Make "
-                            "sure to add one to the 'ERROR_SCHEMAS' setting: this "
-                            "setting is a dict where the key is the status code and "
-                            "the value is the serializer."
-                        )
-                        continue
-                    error_responses[status_code] = self._get_response_for_code(
-                        serializer, status_code
-                    )
-
-            return {**error_responses, **responses}
-        else:
+        if direction != "response":
             # for callbacks (direction=request), we should not add the error responses
             return responses
+        error_responses = {}
+
+        status_codes = self._get_allowed_error_status_codes()
+        for status_code in status_codes:
+            if self._should_add_error_response(responses, status_code):
+                serializer = self._get_error_response_serializer(status_code)
+                if not serializer:
+                    warn(
+                        f"drf-standardized-errors: The status code '{status_code}' "
+                        "is one of the allowed error status codes in the setting "
+                        "'ALLOWED_ERROR_STATUS_CODES'. However, a corresponding "
+                        "error response serializer could not be determined. Make "
+                        "sure to add one to the 'ERROR_SCHEMAS' setting: this "
+                        "setting is a dict where the key is the status code and "
+                        "the value is the serializer."
+                    )
+                    continue
+                error_responses[status_code] = self._get_response_for_code(
+                    serializer, status_code
+                )
+
+        return {**error_responses, **responses}
 
     def _get_allowed_error_status_codes(self) -> List[str]:
         allowed_status_codes = package_settings.ALLOWED_ERROR_STATUS_CODES or []
@@ -146,10 +145,8 @@ class AutoSchema(BaseAutoSchema):
 
         filter_backends = get_django_filter_backends(self.get_filter_backends())
         has_filters = any(
-            [
-                filter_backend.get_schema_operation_parameters(self.view)
-                for filter_backend in filter_backends
-            ]
+            filter_backend.get_schema_operation_parameters(self.view)
+            for filter_backend in filter_backends
         )
         has_extra_validation_errors = bool(self._get_extra_validation_errors())
         return has_request_body or has_filters or has_extra_validation_errors
@@ -236,28 +233,23 @@ class AutoSchema(BaseAutoSchema):
 
     def _get_error_response_serializer(self, status_code: str) -> S:
         error_schemas = package_settings.ERROR_SCHEMAS or {}
-        error_schemas = {
-            str(status_code): schema for status_code, schema in error_schemas.items()
-        }
+        error_schemas = dict(error_schemas.items())
         if serializer := error_schemas.get(status_code):
             return serializer
 
-        # the user did not provide a serializer for the status code so we will
-        # fall back to the default error serializers
         if status_code == "400":
             return self._get_http400_serializer()
-        else:
-            error_serializers = {
-                "401": ErrorResponse401Serializer,
-                "403": ErrorResponse403Serializer,
-                "404": ErrorResponse404Serializer,
-                "405": ErrorResponse405Serializer,
-                "406": ErrorResponse406Serializer,
-                "415": ErrorResponse415Serializer,
-                "429": ErrorResponse429Serializer,
-                "500": ErrorResponse500Serializer,
-            }
-            return error_serializers.get(status_code)
+        error_serializers = {
+            "401": ErrorResponse401Serializer,
+            "403": ErrorResponse403Serializer,
+            "404": ErrorResponse404Serializer,
+            "405": ErrorResponse405Serializer,
+            "406": ErrorResponse406Serializer,
+            "415": ErrorResponse415Serializer,
+            "429": ErrorResponse429Serializer,
+            "500": ErrorResponse500Serializer,
+        }
+        return error_serializers.get(status_code)
 
     def _get_http400_serializer(self) -> S:
         # using the operation id (which is unique) to generate a unique

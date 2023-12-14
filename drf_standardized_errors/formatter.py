@@ -108,19 +108,19 @@ def flatten_errors(
         return []
     elif isinstance(detail, list):
         first_item, *rest = detail
-        if not isinstance(first_item, exceptions.ErrorDetail):
-            index = 0 if index is None else index + 1
-            if attr:
-                new_attr = f"{attr}{package_settings.NESTED_FIELD_SEPARATOR}{index}"
-            else:
-                new_attr = str(index)
-            return flatten_errors(first_item, new_attr, index) + flatten_errors(
-                rest, attr, index
-            )
-        else:
+        if isinstance(first_item, exceptions.ErrorDetail):
             return flatten_errors(first_item, attr, index) + flatten_errors(
                 rest, attr, index
             )
+        index = 0 if index is None else index + 1
+        new_attr = (
+            f"{attr}{package_settings.NESTED_FIELD_SEPARATOR}{index}"
+            if attr
+            else str(index)
+        )
+        return flatten_errors(first_item, new_attr, index) + flatten_errors(
+            rest, attr, index
+        )
     elif isinstance(detail, dict):
         (key, value), *rest = list(detail.items())
         if attr:

@@ -161,7 +161,7 @@ def postprocess_schema_enums(result, generator, **kwargs):
             if len(components) == 1:
                 prop_schema.update(components[0].ref)
             else:
-                prop_schema.update({"oneOf": [c.ref for c in components]})
+                prop_schema["oneOf"] = [c.ref for c in components]
 
             if is_array:
                 props[prop_name]["items"] = safe_ref(prop_schema)

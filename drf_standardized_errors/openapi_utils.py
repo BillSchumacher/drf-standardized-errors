@@ -288,10 +288,9 @@ def get_filter_forms(view: APIView, filter_backends: list) -> List[forms.Form]:
         model = get_view_model(view)
         if not model:
             continue
-        filterset = backend.get_filterset(
+        if filterset := backend.get_filterset(
             view.request, model._default_manager.none(), view
-        )
-        if filterset:
+        ):
             filter_forms.append(filterset.form)
     return filter_forms
 
@@ -328,10 +327,11 @@ def get_form_field_error_codes(field: forms.Field) -> Set[str]:
     error_codes = set()
     if field.required:
         error_codes.add("required")
-    if isinstance(field, forms.FileField) and field.max_length is not None:
-        error_codes.add("max_length")
-    if isinstance(field, forms.FileField) and not field.allow_empty_file:
-        error_codes.add("empty")
+    if isinstance(field, forms.FileField):
+        if field.max_length is not None:
+            error_codes.add("max_length")
+        if not field.allow_empty_file:
+            error_codes.add("empty")
     if isinstance(field, forms.GenericIPAddressField):
         # because to_python calls clean_ipv6_address which can raise an error
         # with this code
@@ -375,8 +375,8 @@ def get_error_codes_from_validators(
             error_codes.add("max_digits")
         if validator.decimal_places is not None:
             error_codes.add("max_decimal_places")
-        if validator.decimal_places is not None and validator.max_digits is not None:
-            error_codes.add("max_whole_digits")
+            if validator.max_digits is not None:
+                error_codes.add("max_whole_digits")
 
     if (
         validate_ipv4_address in field.validators
@@ -488,10 +488,7 @@ def get_error_examples() -> List[OpenApiExample]:
 
 
 def get_example_from_exception(exc: exceptions.APIException) -> OpenApiExample:
-    if is_client_error(exc.status_code):
-        type_ = "client_error"
-    else:
-        type_ = "server_error"
+    type_ = "client_error" if is_client_error(exc.status_code) else "server_error"
     return OpenApiExample(
         exc.__class__.__name__,
         value={

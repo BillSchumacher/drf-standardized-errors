@@ -22,12 +22,14 @@ def get_changelog_file_content():
 
 
 def find_unreleased_line_number(lines):
-    unreleased_line_number = None
-    for i, line in enumerate(lines):
-        if line.strip().lower() == UNRELEASED_LINE.lower():
-            unreleased_line_number = i
-            break
-
+    unreleased_line_number = next(
+        (
+            i
+            for i, line in enumerate(lines)
+            if line.strip().lower() == UNRELEASED_LINE.lower()
+        ),
+        None,
+    )
     if unreleased_line_number is None:
         # Abort the release process as we're not able to update the changelog.
         # If, for some reason, there is no need to update the changelog, comment
